@@ -15,6 +15,8 @@ import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Sphere;
+import java.util.ArrayList;
+import java.util.List;
 /** Sample 8 - how to let the user pick (select) objects in the scene
  * using the mouse or key presses. Can be used for shooting, opening doors, etc. */
 public class TesteTiro extends SimpleApplication {  public static void main(String[] args) {
@@ -24,6 +26,7 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
   }
   Node mundo;
   Geometry marca;
+  List<String> CubeNames = new ArrayList();
   
   @Override
   public void simpleInitApp() {
@@ -33,11 +36,9 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
     /** create four colored boxes and a floor to shoot at: */
     mundo = new Node("mesa");
     rootNode.attachChild(mundo);
-    mundo.attachChild(makeCube("Objeto 1",    -2f, 0f, 1f));
-    mundo.attachChild(makeCube("Objeto 2",    1f,-2f, 0f));
-    mundo.attachChild(makeCube("Objeto 3",  0f, 1f,-2f));
-    mundo.attachChild(makeCube("Objeto 4",   1f, 0f,-4f));
+    
     mundo.attachChild(makeFloor());
+    createCubes();
   }
   
   private void initKeys() {
@@ -45,7 +46,34 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
     inputManager.addListener(actionListener, "Tiro");
   }
   
+  private void createCubes(){
+    mundo.attachChild(makeCube("Objeto 1", -2f, 0f, 1f));
+    mundo.attachChild(makeCube("Objeto 2", 1f,-2f, 0f));
+    mundo.attachChild(makeCube("Objeto 3", 0f, 1f,-2f));
+    mundo.attachChild(makeCube("Objeto 4", 1f, 0f,-4f));
+    CubeNames.add("Objeto 1");
+    CubeNames.add("Objeto 2");
+    CubeNames.add("Objeto 3");
+    CubeNames.add("Objeto 4");
+  }
   
+  private void removeCubes(){
+      mundo.detachChildNamed("Objeto 1");
+      mundo.detachChildNamed("Objeto 2");
+      mundo.detachChildNamed("Objeto 3");
+      mundo.detachChildNamed("Objeto 4");
+  }
+  
+  private void removeCube(String name){
+      System.out.println(name);
+      if(!"the Floor".equals(name))
+      {
+         mundo.detachChildNamed(name);
+         CubeNames.remove(name);
+         if(CubeNames.size() < 1)
+             createCubes();
+      }
+  }
   
   private ActionListener actionListener = new ActionListener() {
     @Override
@@ -65,6 +93,7 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
           String hit = results.getCollision(i).getGeometry().getName();
           System.out.println("O ray colidiu " + hit + " na posição " + pt + 
                   ", " + dist + " de distância.");
+          removeCube(hit);
         }
         if (results.size() > 0){ // 5. Açao da colisão
           // Qual é a colisão mais próxima?
@@ -100,7 +129,7 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
   }
   /** A red ball that marks the last spot that was "hit" by the "shot". */
   protected void initMark() {
-    Sphere sphere = new Sphere(30, 30, 0.2f);
+    Sphere sphere = new Sphere(10, 10, 0.1f);
     marca = new Geometry("BOOM!", sphere);
     Material mark_mat = new Material(assetManager, "Common/MatDefs/Misc/Unshaded.j3md");
     mark_mat.setColor("Color", ColorRGBA.Red);
