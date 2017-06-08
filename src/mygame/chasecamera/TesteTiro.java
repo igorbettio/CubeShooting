@@ -1,8 +1,12 @@
 package mygame.chasecamera;
 
 import com.jme3.app.SimpleApplication;
+import com.jme3.audio.AudioData.DataType;
+import com.jme3.audio.AudioNode;
 import com.jme3.collision.CollisionResult;
 import com.jme3.collision.CollisionResults;
+import com.jme3.effect.ParticleEmitter;
+import com.jme3.effect.ParticleMesh;
 import com.jme3.font.BitmapText;
 import com.jme3.input.KeyInput;
 import com.jme3.input.controls.ActionListener;
@@ -13,10 +17,13 @@ import com.jme3.math.Ray;
 import com.jme3.math.Vector3f;
 import com.jme3.scene.Geometry;
 import com.jme3.scene.Node;
+import com.jme3.scene.Spatial;
 import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Sphere;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
+import java.util.Random;
 /** Sample 8 - how to let the user pick (select) objects in the scene
  * using the mouse or key presses. Can be used for shooting, opening doors, etc. */
 public class TesteTiro extends SimpleApplication {  public static void main(String[] args) {
@@ -27,6 +34,12 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
   Node mundo;
   Geometry marca;
   List<String> CubeNames = new ArrayList();
+  AudioNode gunShot;
+  AudioNode backgroundMusic;
+  int highScore;
+  long startTime;
+  long elapsedTime;
+  long timeLeft;
   
   @Override
   public void simpleInitApp() {
@@ -38,7 +51,14 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
     rootNode.attachChild(mundo);
     
     mundo.attachChild(makeFloor());
+    createHighscore();
+    createTimer();
     createCubes();
+    createFire(9, -2, -8);
+    createFire(-9, -2, -8);
+    highScore = 0;
+    playBackGroundMusic();
+    startTime = System.currentTimeMillis();
   }
   
   private void initKeys() {
@@ -47,10 +67,21 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
   }
   
   private void createCubes(){
-    mundo.attachChild(makeCube("Objeto 1", -2f, 0f, 1f));
+    float[] numbersx = {-10, -9, -8, -7, -6, -5, -4, -3,-2,-1,0,1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+    float[] numbersz = {1,0,-1,-2,-3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14};
+    float[] numbersy = {1,0,-1,-2,-3,-4};
+    
+    Random randomGenerator = new Random();
+    mundo.attachChild(makeCube("Objeto 1", numbersx[randomGenerator.nextInt(19)], numbersy[randomGenerator.nextInt(5)], numbersz[randomGenerator.nextInt(15)]));
+    mundo.attachChild(makeCube("Objeto 2", numbersx[randomGenerator.nextInt(19)], numbersy[randomGenerator.nextInt(5)], numbersz[randomGenerator.nextInt(15)]));
+    mundo.attachChild(makeCube("Objeto 3", numbersx[randomGenerator.nextInt(19)], numbersy[randomGenerator.nextInt(5)], numbersz[randomGenerator.nextInt(15)]));
+    mundo.attachChild(makeCube("Objeto 4", numbersx[randomGenerator.nextInt(19)], numbersy[randomGenerator.nextInt(5)], numbersz[randomGenerator.nextInt(15)]));
+
+    /*mundo.attachChild(makeCube("Objeto 1", -2f, 0f, 1f));
     mundo.attachChild(makeCube("Objeto 2", 1f,-2f, 0f));
     mundo.attachChild(makeCube("Objeto 3", 0f, 1f,-2f));
-    mundo.attachChild(makeCube("Objeto 4", 1f, 0f,-4f));
+    mundo.attachChild(makeCube("Objeto 4", 1f, 0f,-4f));*/
+    
     CubeNames.add("Objeto 1");
     CubeNames.add("Objeto 2");
     CubeNames.add("Objeto 3");
@@ -69,6 +100,9 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
       if(!"the Floor".equals(name))
       {
          mundo.detachChildNamed(name);
+         highScore++;
+         timeLeft++;
+         playMusic();
          CubeNames.remove(name);
          if(CubeNames.size() < 1)
              createCubes();
@@ -87,18 +121,21 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
         mundo.collideWith(ray, results);
         // 4. Imprime colisões
         System.out.println("----- Colisões? " + results.size() + "-----");
+        
+        
         for (int i = 0; i < results.size(); i++) {
           float dist = results.getCollision(i).getDistance();
           Vector3f pt = results.getCollision(i).getContactPoint();
           String hit = results.getCollision(i).getGeometry().getName();
           System.out.println("O ray colidiu " + hit + " na posição " + pt + 
                   ", " + dist + " de distância.");
-          removeCube(hit);
+          
         }
         if (results.size() > 0){ // 5. Açao da colisão
           // Qual é a colisão mais próxima?
           CollisionResult closest = results.getClosestCollision();
           System.out.println("O mais proximo é: " + closest.getGeometry().getName());
+          removeCube(closest.getGeometry().getName());
           //Posiciona a marca.
           marca.setLocalTranslation(closest.getContactPoint());
           rootNode.attachChild(marca);
@@ -147,8 +184,73 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
       settings.getHeight()/2 + ch.getLineHeight()/2, 0);
     guiNode.attachChild(ch);
   }
-  
-  
+
+    private void createHighscore() {
+        guiNode.detachChildNamed("PLACAR");
+        guiFont = assetManager.loadFont("Interface/Fonts/Default.fnt");
+        BitmapText helloText = new BitmapText(guiFont, false);
+        helloText.setName("PLACAR");
+        helloText.setSize(guiFont.getCharSet().getRenderedSize());
+        helloText.setText("Score: " + highScore);
+        helloText.setLocalTranslation(300, helloText.getLineHeight() + 30, 0);
+        guiNode.attachChild(helloText);
+    }
+    
+    private void createTimer() {
+        guiNode.detachChildNamed("TIMER");
+        timeLeft = 30 - (elapsedTime/1000);
+        guiFont = assetManager.loadFont("Interface/Fonts/Default.fnt");
+        BitmapText helloText = new BitmapText(guiFont, false);
+        helloText.setName("TIMER");
+        helloText.setSize(guiFont.getCharSet().getRenderedSize());
+        helloText.setText("Time left: " + timeLeft);
+        helloText.setLocalTranslation(300, helloText.getLineHeight(), 0);
+        guiNode.attachChild(helloText);
+    }
+    
+    public void simpleUpdate(float tpf) {
+        createHighscore();
+        elapsedTime = (new Date()).getTime() - startTime;
+        createTimer();
+        
+    }
+    
+    public void playMusic() {
+        gunShot = new AudioNode(assetManager,"Sound/Effects/Gun.wav", DataType.Stream); 
+        gunShot.setPositional(false);
+        gunShot.setLooping(false);
+        gunShot.setVolume(5);
+        gunShot.play();
+    }
+    
+    public void createFire(float x, float y, float z) {
+        /** Uses Texture from jme3-test-data library! */
+        ParticleEmitter fireEffect = new ParticleEmitter("Emitter", ParticleMesh.Type.Triangle, 30);
+        Material fireMat = new Material(assetManager, "Common/MatDefs/Misc/Particle.j3md");
+        //fireMat.setTexture("Texture", assetManager.loadTexture("Effects/Explosion/flame.png"));
+        fireEffect.setMaterial(fireMat);
+        fireEffect.setImagesX(2); fireEffect.setImagesY(2); // 2x2 texture animation
+        fireEffect.setEndColor( new ColorRGBA(1f, 0f, 0f, 1f) );   // red
+        fireEffect.setStartColor( new ColorRGBA(1f, 1f, 0f, 0.5f) ); // yellow
+        fireEffect.getParticleInfluencer().setInitialVelocity(new Vector3f(0, 2, 0));
+        fireEffect.setStartSize(0.6f);
+        fireEffect.setEndSize(0.1f);
+        fireEffect.setGravity(0f,0f,0f);
+        fireEffect.setLowLife(0.5f);
+        fireEffect.setHighLife(3f);
+        fireEffect.getParticleInfluencer().setVelocityVariation(0.3f);
+        fireEffect.setLocalTranslation(x, y, z);
+        rootNode.attachChild(fireEffect);
+    }
+
+    private void playBackGroundMusic() {
+        backgroundMusic = new AudioNode(assetManager,"Sound/Environment/Nature.ogg", DataType.Stream); 
+        backgroundMusic.setPositional(false);
+        backgroundMusic.setLooping(false);
+        backgroundMusic.setVolume(5);
+        backgroundMusic.play();
+    }
+        
 }
 
 
