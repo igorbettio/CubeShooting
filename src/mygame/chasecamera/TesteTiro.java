@@ -10,6 +10,7 @@ import com.jme3.effect.ParticleMesh;
 import com.jme3.font.BitmapText;
 import com.jme3.input.KeyInput;
 import com.jme3.input.controls.ActionListener;
+import com.jme3.input.controls.InputListener;
 import com.jme3.input.controls.KeyTrigger;
 import com.jme3.material.Material;
 import com.jme3.math.ColorRGBA;
@@ -22,8 +23,12 @@ import com.jme3.scene.shape.Box;
 import com.jme3.scene.shape.Sphere;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import javax.swing.JOptionPane;
+import sun.reflect.generics.visitor.Reifier;
 /** Sample 8 - how to let the user pick (select) objects in the scene
  * using the mouse or key presses. Can be used for shooting, opening doors, etc. */
 public class TesteTiro extends SimpleApplication {  public static void main(String[] args) {
@@ -40,6 +45,11 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
   long startTime;
   long elapsedTime;
   long timeLeft;
+  int volume;
+  Map<String, Integer> highScores;
+  Boolean pause = false;
+  String userName;
+  int dificuldade;
   
   @Override
   public void simpleInitApp() {
@@ -51,17 +61,23 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
     rootNode.attachChild(mundo);
     
     mundo.attachChild(makeFloor());
-    createHighscore();
-    createTimer();
-    createCubes();
+    //createHighscore();
+    //createTimer();
+    //createCubes();
     createFire(9, -2, -8);
     createFire(-9, -2, -8);
-    highScore = 0;
+    //highScore = 0;
     playBackGroundMusic();
-    startTime = System.currentTimeMillis();
+    //startTime = System.currentTimeMillis();
+    volume = 5;
+    highScores = new HashMap();
+    //createMenu();
+    createMenu();
   }
   
   private void initKeys() {
+    inputManager.addMapping("Pause", new KeyTrigger(KeyInput.KEY_P));
+    //inputManager.addListener(pauseActionListener, new String[]{"Pause"});
     inputManager.addMapping("Tiro", new KeyTrigger(KeyInput.KEY_SPACE));
     inputManager.addListener(actionListener, "Tiro");
   }
@@ -77,11 +93,6 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
     mundo.attachChild(makeCube("Objeto 3", numbersx[randomGenerator.nextInt(19)], numbersy[randomGenerator.nextInt(5)], numbersz[randomGenerator.nextInt(15)]));
     mundo.attachChild(makeCube("Objeto 4", numbersx[randomGenerator.nextInt(19)], numbersy[randomGenerator.nextInt(5)], numbersz[randomGenerator.nextInt(15)]));
 
-    /*mundo.attachChild(makeCube("Objeto 1", -2f, 0f, 1f));
-    mundo.attachChild(makeCube("Objeto 2", 1f,-2f, 0f));
-    mundo.attachChild(makeCube("Objeto 3", 0f, 1f,-2f));
-    mundo.attachChild(makeCube("Objeto 4", 1f, 0f,-4f));*/
-    
     CubeNames.add("Objeto 1");
     CubeNames.add("Objeto 2");
     CubeNames.add("Objeto 3");
@@ -102,7 +113,6 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
          mundo.detachChildNamed(name);
          highScore++;
          timeLeft++;
-         playMusic();
          CubeNames.remove(name);
          if(CubeNames.size() < 1)
              createCubes();
@@ -113,6 +123,7 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
     @Override
     public void onAction(String name, boolean keyPressed, float tpf) {
        if (name.equals("Tiro") && !keyPressed) {
+           playMusic();
          // 1. Reinicia lista de resultados
         CollisionResults results = new CollisionResults();
         // 2. Redife o raio em função da localicação e direção da camera.
@@ -209,17 +220,24 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
     }
     
     public void simpleUpdate(float tpf) {
-        createHighscore();
-        elapsedTime = (new Date()).getTime() - startTime;
-        createTimer();
+        if(timeLeft <= 0) {
+            addHighscore();
+            createMenu();
+        }
         
+        if(!pause)
+        {
+            createHighscore();
+            elapsedTime = (new Date()).getTime() - startTime;
+            createTimer();
+        }
     }
     
     public void playMusic() {
         gunShot = new AudioNode(assetManager,"Sound/Effects/Gun.wav", DataType.Stream); 
         gunShot.setPositional(false);
         gunShot.setLooping(false);
-        gunShot.setVolume(5);
+        gunShot.setVolume(volume);
         gunShot.play();
     }
     
@@ -247,10 +265,91 @@ public class TesteTiro extends SimpleApplication {  public static void main(Stri
         backgroundMusic = new AudioNode(assetManager,"Sound/Environment/Nature.ogg", DataType.Stream); 
         backgroundMusic.setPositional(false);
         backgroundMusic.setLooping(false);
-        backgroundMusic.setVolume(5);
+        backgroundMusic.setVolume(volume);
         backgroundMusic.play();
     }
+    
+    private void newGame() {
+        userName = JOptionPane.showInputDialog("Insira seu nome");
         
+        highScore = 0;
+        if(CubeNames.size() > 0) {
+            for(String name : CubeNames) {
+                mundo.detachChildNamed(name);
+            }
+        }
+        CubeNames = new ArrayList();
+        timeLeft = 30;
+        startTime = System.currentTimeMillis();
+        elapsedTime = 0;
+        createCubes();
+    }
+    
+    private void setPause(Boolean action) {
+        pause = action;
+        if(pause) {
+            inputManager.removeListener(actionListener);
+        }
+        else {
+            inputManager.addListener(actionListener, "Tiro");
+        }
+    }
+    
+    private void addHighscore() {
+        highScores.put(userName, highScore);
+    }
+    
+    private void createMenu() {
+        List<String> optionList = new ArrayList<String>();
+        optionList.add("0");
+        optionList.add("1");
+        optionList.add("2");
+        optionList.add("3");
+        optionList.add("4");
+        optionList.add("5");
+        optionList.add("6");
+        
+        Object[] options = optionList.toArray();
+        int value;
+        value = JOptionPane.showOptionDialog(
+                null,
+                "Selecione um dos itens:\n "
+                        + "0. Sair\n"
+                        + " 1. Novo Jogo\n "
+                        + "2. Placar\n "
+                        + "3. Controles\n "
+                        + " 4. Volume\n"
+                        + " 5. Dificuldade\n"
+                        + " 6. Voltar ao jogo\n",
+                "Opção:",
+                JOptionPane.YES_NO_OPTION,
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                options,
+                optionList.get(0));
+            
+                if (value == 1)
+                    newGame();
+                
+                if(value == 2)
+                    JOptionPane.showMessageDialog(null, highScores);
+                
+                if(value == 3)
+                {
+                    JOptionPane.showMessageDialog(null, "Utilize o mouse "
+                            + "para mover a mira e pressione a tecla espaço para "
+                            + "atirar. Tente fazer o maior placar possível no "
+                            + "tempo de trinta segundos.");
+                }
+                
+                if(value == 4) {
+                    volume = Integer.parseInt(JOptionPane.showInputDialog("Insira o volume (0-10)"));
+                }
+                
+                if(value == 5) {
+                    dificuldade = Integer.parseInt(JOptionPane.showInputDialog("Insira a dificuldade\n1-Fácil\n2-Médio\n3-Difícil)"));
+                }
+        }
 }
 
 
